@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.TextArea?>
+<?import javafx.scene.layout.VBox?>
+<?import javafx.scene.control.ComboBox?>
+
+
+<VBox alignment="CENTER" spacing="10"
+	xmlns:fx="http://javafx.com/fxml"
+	fx:controller="com.seckinarslan.javafxplayht.controller.MainController">
+	<padding>
+		<Insets top="10" right="10" bottom="10" left="10" />
+	</padding>
+
+	<TextArea fx:id="inputTextField" VBox.vgrow="ALWAYS" wrapText="true"/>
+	<ComboBox fx:id="voicesComboBox" />
+	<Label fx:id="errorLabel"/>
+	<Button onAction="#onButtonClick"
+		text="Girilen Yazıyı Sese Dönüştür" />
+	<Button onAction="#playText" text="Oynat" />
+	<Label fx:id="resultLabel" prefWidth="300" wrapText="true"
+		text="" />
+
+</VBox>
