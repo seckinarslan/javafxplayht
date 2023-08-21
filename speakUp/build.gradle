@@ -35,6 +35,13 @@ implementation 'org.openjfx:javafx-graphics:17'
 implementation 'org.openjfx:javafx-controls:17'
 implementation 'org.openjfx:javafx-fxml:17'
 
+implementation('org.springframework.boot:spring-boot-starter-web') {
+	exclude group: 'org.springframework.boot', module: 'spring-boot-starter-tomcat'
+}
+implementation 'org.springframework.boot:spring-boot-starter-undertow'
+
+implementation 'org.slf4j:slf4j-api:1.7.30'
+implementation 'ch.qos.logback:logback-classic:1.2.3'
 
 tasks.named('test') {
 	useJUnitPlatform()

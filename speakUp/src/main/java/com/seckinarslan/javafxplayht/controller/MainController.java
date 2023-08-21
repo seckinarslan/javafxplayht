@@ -39,7 +39,7 @@ public class MainController {
 	@Getter
 	@Setter
 	private List<Voice> availableVoiceList;
-	
+
 	@Getter
 	@Setter
 	private Voice selectedVoice;
@@ -56,29 +56,30 @@ public class MainController {
 
 	@FXML
 	public void initialize() {
-		inputTextField.setText("Merhaba, SpeakUp uygulaması gerçekçi ve akıcı bir Türkçe ile seslendiricilerimizden seçim yaptıktan sonra 'Girilen Yazıyı Sese Dönüştür' butonuna tıklarsanız, onlar tarafından buraya yazdıklarınız seslendirilecektir. 'Audio URL:' kısmında bir güncelleme görüyorsanız, oynat butonuna tıklayarak sesi dinleyebilirsiniz.");
-		System.out.println("Initialize method called. resultLabel: " + resultLabel);
+		System.out.println("Initialize method called.");
+		inputTextField.setText(
+				"Merhaba, SpeakUp uygulaması gerçekçi ve akıcı bir Türkçe ile seslendiricilerimizden seçim yaptıktan sonra 'Girilen Yazıyı Sese Dönüştür' butonuna tıklarsanız, onlar tarafından buraya yazdıklarınız seslendirilecektir. 'Audio URL:' kısmında bir güncelleme görüyorsanız, oynat butonuna tıklayarak sesi dinleyebilirsiniz.");
+		System.out.println("loadVoices() calling from Initialize method.");
 		loadVoices();
 	}
 
 	@FXML
-	public void onButtonClick() {
+	public void convertGivenTextToAudio() {
+		System.out.println("convertGivenTextToAudio method called.");
 		String textToConvert = inputTextField.getText();
-
+		System.out.println("took the text from inputTextField, textToConvert is " + textToConvert);
 		if (textToConvert.isEmpty()) {
 			resultLabel.setText("Please enter text to convert.");
 			return;
 		}
-		
-		String voice = "en-US-JennyNeural";
 
+		String voice = "en-US-JennyNeural";
 		String selectedVoiceName = voicesComboBox.getValue();
+		System.out.println("voicesComboBox dan secilen seslendirici: " + selectedVoiceName);
 		List<Voice> voiceList = seslendiricilerMap.get(selectedVoiceName);
 		voice = voiceList.iterator().hasNext() ? voiceList.iterator().next().getVoiceValue() : voice;
-
+		System.out.println("voices: " + voice.toString());
 		transcriptionId = apiService.convertTextToAudio(textToConvert, voice);
-
-		// Check the conversion status
 		if (transcriptionId != null) {
 			if (transcriptionId.startsWith("-")) {
 				String audioUrl = apiService.getAudioUrl(transcriptionId);
@@ -94,9 +95,9 @@ public class MainController {
 	}
 
 	@FXML
-	public void playText(ActionEvent event) {
-		System.out.println("playText method called, transcriptionId is : " + transcriptionId);
-		
+	public void playConvertedTextAudio(ActionEvent event) {
+		System.out.println("playConvertedTextAudio method called, transcriptionId is : " + transcriptionId);
+
 		if (transcriptionId != null) {
 			String audioUrl = null;
 
@@ -107,6 +108,7 @@ public class MainController {
 			}
 
 			if (audioUrl != null) {
+				System.out.println("Audio URL: " + audioUrl);
 				resultLabel.setText("Audio URL: " + audioUrl);
 				playAudio(audioUrl);
 			} else {
@@ -118,6 +120,7 @@ public class MainController {
 	}
 
 	private void playAudio(String audioUrl) {
+		System.out.println("playAudio method called, audioUrl is : " + audioUrl);
 		Media media = new Media(audioUrl);
 		MediaPlayer mediaPlayer = new MediaPlayer(media);
 		mediaPlayer.play();
@@ -133,6 +136,7 @@ public class MainController {
 			Map<String, List<Voice>> trSeslendiriciler = availableVoiceList.stream()
 					.collect(Collectors.groupingBy(Voice::getSeslendirici));
 			seslendiricilerMap = trSeslendiriciler;
+			System.out.println("kullanilabilir seslendiriciler: " + seslendiricilerMap.keySet());
 			voicesComboBox.setItems(FXCollections.observableArrayList(seslendiricilerMap.keySet()));
 		}
 	}

@@ -6,6 +6,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -21,155 +23,156 @@ import com.seckinarslan.javafxplayht.api.JsonResponseofGetAvailableVoices.Voice;
 
 @Service
 public class ApiService {
+	private static final Logger logger = LoggerFactory.getLogger(com.seckinarslan.javafxplayht.util.MyLogger.class);
+	@Value("${api.base.url}")
+	private String baseUrl;
 
-    @Value("${api.base.url}")
-    private String baseUrl;
+	private String apiV1 = "/api/v1";
 
-    private final RestTemplate restTemplate;
-    private final String secretKey;
-    private final String userId;
+	private final RestTemplate restTemplate;
+	private final String secretKey;
+	private final String userId;
 
-    public ApiService(RestTemplate restTemplate, 
-                      @Value("${playht_api.secret-key}") String secretKey, 
-                      @Value("${playht_api.user-id}") String userId) {
-        this.restTemplate = restTemplate;
-        this.secretKey = secretKey;
-        this.userId = userId;
-    }
+	public ApiService(RestTemplate restTemplate, @Value("${playht_api.secret-key}") String secretKey,
+			@Value("${playht_api.user-id}") String userId) {
 
-    private HttpHeaders createHeaders() {
-        HttpHeaders headers = new HttpHeaders();
-        headers.setAccept(Collections.singletonList(MediaType.APPLICATION_JSON));
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        headers.set("Authorization", secretKey);
-        headers.set("X-User-Id", userId);
-        return headers;
-    }
+		this.restTemplate = restTemplate;
+		this.secretKey = secretKey;
+		this.userId = userId;
+	}
 
-    public String convertTextToAudio(String text, String voice) {
-        String transcriptionId = null;
-        String url = baseUrl + "/api/v1/convert";
-        
-        Map<String, Object> requestBody = new HashMap<>();
-        requestBody.put("content", Collections.singletonList(text));
-        requestBody.put("voice", voice);
+	private HttpHeaders createHeaders() {
+		HttpHeaders headers = new HttpHeaders();
+		headers.setAccept(Collections.singletonList(MediaType.APPLICATION_JSON));
+		headers.setContentType(MediaType.APPLICATION_JSON);
+		headers.set("Authorization", secretKey);
+		headers.set("X-User-Id", userId);
+		return headers;
+	}
 
-        HttpEntity<Map<String, Object>> requestEntity = new HttpEntity<>(requestBody, createHeaders());
-        System.out.println("URL GET HAZIRLANIYOR:" + url);
-        ResponseEntity<String> responseEntity = restTemplate.exchange(url, HttpMethod.POST, requestEntity, String.class);
+	public String convertTextToAudio(String text, String voice) {
+		String url = baseUrl + apiV1 + "/convert";
+		System.out.println(url + " HttpMethod.POST icin hazirlaniyor.");
+		String transcriptionId = null;
 
-        if (responseEntity.getStatusCode() == HttpStatus.OK || responseEntity.getStatusCode() == HttpStatus.CREATED) {
-            JsonParser jsonParser = new JsonParser();
-            transcriptionId = jsonParser.parseTranscriptionId(responseEntity.getBody());
-            
-            System.out.println("transcriptionId=" + transcriptionId + " için checkConversionStatus çalışacak.");
+		Map<String, Object> requestBody = new HashMap<>();
+		requestBody.put("content", Collections.singletonList(text));
+		requestBody.put("voice", voice);
 
-            try {
-        		System.out.println("Biraz bekleyip tekrar deniyorum.");
+		HttpEntity<Map<String, Object>> requestEntity = new HttpEntity<>(requestBody, createHeaders());
+		ResponseEntity<String> responseEntity = restTemplate.exchange(url, HttpMethod.POST, requestEntity,
+				String.class);
+
+		if (responseEntity.getStatusCode() == HttpStatus.OK || responseEntity.getStatusCode() == HttpStatus.CREATED) {
+			if (HttpStatus.OK.equals(responseEntity.getStatusCode())) {
+				logger.debug("convertTextToAudio çalıştı. HttpStatus.OK");
+			} else if (HttpStatus.CREATED.equals(responseEntity.getStatusCode())) {
+				logger.debug("convertTextToAudio çalıştı. HttpStatus.CREATED");
+			}
+
+			JsonParser jsonParser = new JsonParser();
+			transcriptionId = jsonParser.parseTranscriptionId(responseEntity.getBody());
+			logger.debug(url + " den donen transcriptionId: " + transcriptionId);
+			try {
+				logger.debug("3 saniye bekleyip, checkConversionStatus calistirilacak..");
 				Thread.sleep(3000);
 			} catch (InterruptedException e) {
-				System.out.println("5 saniye bekleyemedim hata aldım..");
+				System.out.println("3 saniye bekleyemedim hata aldım..");
 			}
-            // Check conversion status
-            String audioUrl = checkConversionStatus(transcriptionId);
-            
-            if (audioUrl != null) {
-                return audioUrl;
-            } else {
-                return "Conversion is still pending...";
-            }
-        } else {
-            System.out.println("Error in convertTextToAudio: ");
-            return transcriptionId;
-        }
-    }
-
-    public String checkConversionStatus(String transcriptionId) {
-        String url = baseUrl + "/api/v1/articleStatus/?transcriptionId=" + transcriptionId;
-
-        System.out.println("URL GET HAZIRLANIYOR:" + url);
-        HttpEntity<String> entity = new HttpEntity<>(createHeaders());
-        ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET, entity, String.class);
-        System.out.println("transcriptionId=" + transcriptionId + " için " + url + " url ile " + " checkConversionStatus çalıştı.");
-        
-        if (response.getStatusCode() == HttpStatus.OK) {
-            JsonParser jsonParser = new JsonParser();
-            boolean statusOk = jsonParser.getConversionStatus(response.getBody());
-            
-            if (statusOk) {
-            	String mediaUrl = jsonParser.getAudioUrl(response.getBody());
-            	System.out.println("statusOk - jsonParser.getAudioUrl(response.getBody()):" + mediaUrl);
-                return mediaUrl;
-            } else {
-                System.out.println("Conversion is not yet complete.");
-                return null;
-            }
-        } else {
-            System.out.println("Error in checkConversionStatus: ");
-            return null;
-        }
-    }
-
-    public String getAudioUrl(String transcriptionId) {
-    	String audioUrl = null;
-        String url = baseUrl + "/api/v1/conversions/" + transcriptionId;
-
-        HttpEntity<String> entity = new HttpEntity<>(createHeaders());
-        ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET, entity, String.class);
-
-        if (response.getStatusCode() == HttpStatus.OK) {
-            JsonParser jsonParser = new JsonParser();
-            audioUrl = jsonParser.parseTranscriptionId(response.getBody());
-        } else {
-            System.out.println("Error in getAudioUrl: ");
-            audioUrl = null;
-        }
-        
-        return audioUrl;
-    }
-    
-    public List<String> getAvailableVoices() {
-    	String url = baseUrl + "/api/v1/getVoices";
-        HttpEntity<String> entity = new HttpEntity<>(createHeaders());
-        ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET, entity, String.class);
-
-        if (response.getStatusCode() == HttpStatus.OK) {
-        	System.out.println(url + " çalıştı ve HttpStatus.OK");
-        	 JsonParser jsonParser = new JsonParser();
-        	 List<Voice> voiceList = jsonParser.getAvailableVoices(response.getBody());
-        	 for (Voice voice : voiceList) {
-				System.out.println(voice.toString());
+			String audioUrl = checkConversionStatus(transcriptionId);
+			if (audioUrl != null) {
+				return audioUrl;
+			} else {
+				System.out.println("Conversion is still pending... ");
+				return "Conversion is still pending...";
 			}
-        	return Collections.emptyList();//burada sesleri al ve dön
-            // Burada JSON dönüşünü parse edip seslerin listesini elde edeceksiniz.
-            // JsonParser sınıfınıza göre bu işlemi yapabilirsiniz.
-            // Örnek olarak bu parçayı doldurmanız gerekecek.
-            // List<String> voices = ... 
-            // return voices;
-        } else {
-            System.out.println("Error in getAvailableVoices.");
-            return Collections.emptyList();
-        }
-    }
-    
-    public List<Voice> getAvailableTurkishVoices() {
-    	String url = baseUrl + "/api/v1/getVoices";
-        HttpEntity<String> entity = new HttpEntity<>(createHeaders());
-        ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET, entity, String.class);
+		} else {
+			logger.debug("Error in convertTextToAudio: ");
+			return transcriptionId;
+		}
+	}
 
-        if (response.getStatusCode() == HttpStatus.OK) {
-        	System.out.println(url + " çalıştı ve HttpStatus.OK");
-        	 JsonParser jsonParser = new JsonParser();
-        	 List<Voice> voiceList = jsonParser.getAvailableVoices(response.getBody());
-        	 List<Voice> turkishVoices = voiceList.stream()
-             	    .filter(voice -> "Turkish".compareTo(voice.getLanguage()) == 0)
-             	    .collect(Collectors.toList());
-             
-             System.out.println("Kullanılabilir Turkce sesler sayisi: " + turkishVoices.size());
-        	return turkishVoices;
-        } else {
-            System.out.println("Error in getAvailableVoices.");
-            return Collections.emptyList();
-        }
-    }
+	public String checkConversionStatus(String transcriptionId) {
+		String url = baseUrl + apiV1 + "/articleStatus/?transcriptionId=" + transcriptionId;
+		logger.debug(url + " HttpMethod.GET icin hazirlaniyor.");
+
+		HttpEntity<String> entity = new HttpEntity<>(createHeaders());
+		ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET, entity, String.class);
+
+		if (response.getStatusCode() == HttpStatus.OK) {
+			logger.debug("checkConversionStatus çalıştı. HttpStatus.OK");
+			JsonParser jsonParser = new JsonParser();
+			boolean statusOk = jsonParser.getConversionStatus(response.getBody());
+
+			if (statusOk) {
+				String mediaUrl = jsonParser.getAudioUrl(response.getBody());
+				logger.debug("statusOk - jsonParser.getAudioUrl(response.getBody()):" + mediaUrl);
+				return mediaUrl;
+			} else {
+				logger.debug("Conversion is not yet complete.");
+				return null;
+			}
+		} else {
+			logger.debug("Error in checkConversionStatus: ");
+			return null;
+		}
+	}
+
+	public String getAudioUrl(String transcriptionId) {
+		String audioUrl = null;
+		String url = baseUrl + apiV1 + "conversions/" + transcriptionId;
+
+		HttpEntity<String> entity = new HttpEntity<>(createHeaders());
+		ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET, entity, String.class);
+
+		if (response.getStatusCode() == HttpStatus.OK) {
+			logger.debug("getAudioUrl çalıştı. HttpStatus.OK");
+			JsonParser jsonParser = new JsonParser();
+			audioUrl = jsonParser.parseTranscriptionId(response.getBody());
+		} else {
+			logger.debug("Error in getAudioUrl: ");
+			audioUrl = null;
+		}
+
+		return audioUrl;
+	}
+
+	public List<String> getAvailableVoices() {
+		String url = baseUrl + "/api/v1/getVoices";
+		HttpEntity<String> entity = new HttpEntity<>(createHeaders());
+		ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET, entity, String.class);
+
+		if (response.getStatusCode() == HttpStatus.OK) {
+			logger.debug("getAvailableVoices çalıştı. HttpStatus.OK");
+			JsonParser jsonParser = new JsonParser();
+			List<Voice> voiceList = jsonParser.getAvailableVoices(response.getBody());
+			for (Voice voice : voiceList) {
+				logger.debug(voice.toString());
+			}
+			return Collections.emptyList();
+		} else {
+			logger.debug("Error in getAvailableVoices.");
+			return Collections.emptyList();
+		}
+	}
+
+	public List<Voice> getAvailableTurkishVoices() {
+		String url = baseUrl + "/api/v1/getVoices";
+		HttpEntity<String> entity = new HttpEntity<>(createHeaders());
+		ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET, entity, String.class);
+
+		if (response.getStatusCode() == HttpStatus.OK) {
+			logger.debug("getAvailableTurkishVoices çalıştı. HttpStatus.OK");
+			JsonParser jsonParser = new JsonParser();
+			List<Voice> voiceList = jsonParser.getAvailableVoices(response.getBody());
+			List<Voice> turkishVoices = voiceList.stream()
+					.filter(voice -> "Turkish".compareTo(voice.getLanguage()) == 0).collect(Collectors.toList());
+
+			logger.debug("Kullanılabilir Turkce sesler sayisi: " + turkishVoices.size());
+			return turkishVoices;
+		} else {
+			logger.debug("Error in getAvailableVoices.");
+			return Collections.emptyList();
+		}
+	}
 }
