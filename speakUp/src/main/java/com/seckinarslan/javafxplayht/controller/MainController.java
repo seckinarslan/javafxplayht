@@ -4,6 +4,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 
@@ -23,6 +25,7 @@ import lombok.Setter;
 
 @Controller
 public class MainController {
+	private static final Logger logger = LoggerFactory.getLogger(com.seckinarslan.javafxplayht.util.MyLogger.class);
 
 	@Autowired
 	private ApiService apiService;
@@ -51,23 +54,22 @@ public class MainController {
 	private Map<String, List<Voice>> seslendiricilerMap;
 
 	public MainController() {
-		System.out.println("MainController constructor called");
+		logger.debug("MainController constructor called");
 	}
 
 	@FXML
 	public void initialize() {
-		System.out.println("Initialize method called.");
-		inputTextField.setText(
-				"Merhaba, SpeakUp uygulaması gerçekçi ve akıcı bir Türkçe ile seslendiricilerimizden seçim yaptıktan sonra 'Girilen Yazıyı Sese Dönüştür' butonuna tıklarsanız, onlar tarafından buraya yazdıklarınız seslendirilecektir. 'Audio URL:' kısmında bir güncelleme görüyorsanız, oynat butonuna tıklayarak sesi dinleyebilirsiniz.");
-		System.out.println("loadVoices() calling from Initialize method.");
+		logger.debug("Initialize method called.");
+		inputTextField.setText("Merhaba, SpeakUp uygulaması gerçekçi ve akıcı bir Türkçe ile seslendiricilerimizden seçim yaptıktan sonra 'Girilen Yazıyı Sese Dönüştür' butonuna tıklarsanız, onlar tarafından buraya yazdıklarınız seslendirilecektir. 'Audio URL:' kısmında bir güncelleme görüyorsanız, oynat butonuna tıklayarak sesi dinleyebilirsiniz.");
+		logger.debug("loadVoices() calling from Initialize method.");
 		loadVoices();
 	}
 
 	@FXML
 	public void convertGivenTextToAudio() {
-		System.out.println("convertGivenTextToAudio method called.");
+		logger.debug("convertGivenTextToAudio method called.");
 		String textToConvert = inputTextField.getText();
-		System.out.println("took the text from inputTextField, textToConvert is " + textToConvert);
+		logger.debug("took the text from inputTextField, textToConvert is " + textToConvert);
 		if (textToConvert.isEmpty()) {
 			resultLabel.setText("Please enter text to convert.");
 			return;
@@ -75,10 +77,10 @@ public class MainController {
 
 		String voice = "en-US-JennyNeural";
 		String selectedVoiceName = voicesComboBox.getValue();
-		System.out.println("voicesComboBox dan secilen seslendirici: " + selectedVoiceName);
+		logger.debug("voicesComboBox dan secilen seslendirici: " + selectedVoiceName);
 		List<Voice> voiceList = seslendiricilerMap.get(selectedVoiceName);
 		voice = voiceList.iterator().hasNext() ? voiceList.iterator().next().getVoiceValue() : voice;
-		System.out.println("voices: " + voice.toString());
+		logger.debug("voices: " + voice.toString());
 		transcriptionId = apiService.convertTextToAudio(textToConvert, voice);
 		if (transcriptionId != null) {
 			if (transcriptionId.startsWith("-")) {
@@ -88,7 +90,7 @@ public class MainController {
 				resultLabel.setText(transcriptionId);
 			}
 		} else if ("Conversion is still pending...".equals(transcriptionId)) {
-			System.out.println("Conversion is still pending...");
+			logger.debug("Conversion is still pending...");
 		} else {
 			resultLabel.setText("Error in converting text to audio.");
 		}
@@ -96,7 +98,7 @@ public class MainController {
 
 	@FXML
 	public void playConvertedTextAudio(ActionEvent event) {
-		System.out.println("playConvertedTextAudio method called, transcriptionId is : " + transcriptionId);
+		logger.debug("playConvertedTextAudio method called, transcriptionId is : " + transcriptionId);
 
 		if (transcriptionId != null) {
 			String audioUrl = null;
@@ -108,7 +110,7 @@ public class MainController {
 			}
 
 			if (audioUrl != null) {
-				System.out.println("Audio URL: " + audioUrl);
+				logger.debug("Audio URL: " + audioUrl);
 				resultLabel.setText("Audio URL: " + audioUrl);
 				playAudio(audioUrl);
 			} else {
@@ -120,7 +122,7 @@ public class MainController {
 	}
 
 	private void playAudio(String audioUrl) {
-		System.out.println("playAudio method called, audioUrl is : " + audioUrl);
+		logger.debug("playAudio method called, audioUrl is : " + audioUrl);
 		Media media = new Media(audioUrl);
 		MediaPlayer mediaPlayer = new MediaPlayer(media);
 		mediaPlayer.play();
@@ -131,12 +133,12 @@ public class MainController {
 		availableVoiceList = apiService.getAvailableTurkishVoices();
 		if (availableVoiceList.isEmpty()) {
 			errorLabel.setText("Kullanılabilir sesler yüklenirken bir hata oluştu.");
-			System.out.println("loadVoices için apiService den getAvailableTurkishVoices boş döndü.");
+			logger.debug("loadVoices için apiService den getAvailableTurkishVoices boş döndü.");
 		} else {
 			Map<String, List<Voice>> trSeslendiriciler = availableVoiceList.stream()
 					.collect(Collectors.groupingBy(Voice::getSeslendirici));
 			seslendiricilerMap = trSeslendiriciler;
-			System.out.println("kullanilabilir seslendiriciler: " + seslendiricilerMap.keySet());
+			logger.debug("kullanilabilir seslendiriciler: " + seslendiricilerMap.keySet());
 			voicesComboBox.setItems(FXCollections.observableArrayList(seslendiricilerMap.keySet()));
 		}
 	}
